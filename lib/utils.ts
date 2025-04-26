@@ -1,5 +1,3 @@
-/* eslint-disable prefer-const */
-/* eslint-disable no-prototype-builtins */
 import { type ClassValue, clsx } from "clsx";
 import qs from "qs";
 import { twMerge } from "tailwind-merge";
@@ -13,15 +11,12 @@ export function cn(...inputs: ClassValue[]) {
 // ERROR HANDLER
 export const handleError = (error: unknown) => {
   if (error instanceof Error) {
-    // This is a native JavaScript error (e.g., TypeError, RangeError)
     console.error(error.message);
     throw new Error(`Error: ${error.message}`);
   } else if (typeof error === "string") {
-    // This is a string error message
     console.error(error);
     throw new Error(`Error: ${error}`);
   } else {
-    // This is an unknown type of error
     console.error(error);
     throw new Error(`Unknown error: ${JSON.stringify(error)}`);
   }
@@ -39,7 +34,7 @@ const shimmer = (w: number, h: number) => `
   </defs>
   <rect width="${w}" height="${h}" fill="#7986AC" />
   <rect id="r" width="${w}" height="${h}" fill="url(#g)" />
-  <animate xlink:href="#r" attributeName="x" from="-${w}" to="${w}" dur="1s" repeatCount="indefinite"  />
+  <animate xlink:href="#r" attributeName="x" from="-${w}" to="${w}" dur="1s" repeatCount="indefinite" />
 </svg>`;
 
 const toBase64 = (str: string) =>
@@ -50,9 +45,14 @@ const toBase64 = (str: string) =>
 export const dataUrl = `data:image/svg+xml;base64,${toBase64(
   shimmer(1000, 1000)
 )}`;
-// ==== End
 
 // FORM URL QUERY
+interface FormUrlQueryParams {
+  searchParams: URLSearchParams;
+  key: string;
+  value: string;
+}
+
 export const formUrlQuery = ({
   searchParams,
   key,
@@ -66,11 +66,16 @@ export const formUrlQuery = ({
 };
 
 // REMOVE KEY FROM QUERY
+interface RemoveUrlQueryParams {
+  searchParams: string;
+  keysToRemove: string[];
+}
+
 export function removeKeysFromQuery({
   searchParams,
   keysToRemove,
 }: RemoveUrlQueryParams) {
-  const currentUrl = qs.parse(searchParams);
+  const currentUrl = qs.parse(searchParams) as Record<string, unknown>;
 
   keysToRemove.forEach((key) => {
     delete currentUrl[key];
@@ -85,19 +90,27 @@ export function removeKeysFromQuery({
 }
 
 // DEBOUNCE
-export const debounce = (func: (...args: any[]) => void, delay: number) => {
-  let timeoutId: NodeJS.Timeout | null;
-  return (...args: any[]) => {
+export const debounce = <T extends (...args: any[]) => void>(func: T, delay: number) => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>) => {
     if (timeoutId) clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func.apply(null, args), delay);
+    timeoutId = setTimeout(() => func(...args), delay);
   };
 };
 
-// GE IMAGE SIZE
+// GET IMAGE SIZE
 export type AspectRatioKey = keyof typeof aspectRatioOptions;
+
+interface ImageObject {
+  aspectRatio?: AspectRatioKey;
+  width?: number;
+  height?: number;
+  [key: string]: any;
+}
+
 export const getImageSize = (
   type: string,
-  image: any,
+  image: ImageObject,
   dimension: "width" | "height"
 ): number => {
   if (type === "fill") {
@@ -116,39 +129,40 @@ export const download = (url: string, filename: string) => {
   }
 
   fetch(url)
-    .then((response) => response.blob())
+    .then((response: Response) => response.blob())
     .then((blob) => {
       const blobURL = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = blobURL;
 
-      if (filename && filename.length)
-        a.download = `${filename.replace(" ", "_")}.png`;
+      if (filename && filename.length) {
+        a.download = `${filename.replace(/ /g, "_")}.png`;
+      }
       document.body.appendChild(a);
       a.click();
     })
-    .catch((error) => console.log({ error }));
+    .catch((error) => console.error({ error }));
 };
 
 // DEEP MERGE OBJECTS
-export const deepMergeObjects = (obj1: any, obj2: any) => {
-  if(obj2 === null || obj2 === undefined) {
-    return obj1;
+export const deepMergeObjects = <T extends object, U extends object>(obj1: T, obj2: U): T & U => {
+  if (obj2 === null || obj2 === undefined) {
+    return obj1 as T & U;
   }
 
-  let output = { ...obj2 };
+  let output = { ...obj2 } as T & U;
 
   for (let key in obj1) {
-    if (obj1.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(obj1, key)) {
       if (
         obj1[key] &&
         typeof obj1[key] === "object" &&
         obj2[key] &&
         typeof obj2[key] === "object"
       ) {
-        output[key] = deepMergeObjects(obj1[key], obj2[key]);
+        output[key] = deepMergeObjects(obj1[key] as object, obj2[key] as object) as any;
       } else {
-        output[key] = obj1[key];
+        output[key] = obj1[key] as any;
       }
     }
   }
